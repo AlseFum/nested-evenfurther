@@ -1,5 +1,7 @@
-# Vue 3 + Vite
+# Nested even further
+You can write your own nested design and deploy with this repository.
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+This repository uses vite+vue, thus you need node to launch it.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+As for how to write the design, you can just look at the `src/assets/example.js`, or just read the code. It's not complicated.
+;-)
