@@ -1,38 +1,42 @@
 export default
     {
-        n1: {
-            title: "N1",
-            slot: ["n1", "n2"]
+        universe: {
+            title: "universe",
+            line:"line for n1",
+            slot:{seq:[{repeat:[1,10],value: "galatic_supercluster"}]}
         },
-        n2: {
-            title: "n2",
-            slot: {
-                seq: [
-                    "n1", null, {
-                        repeat: 2,
-                        value: {
-                            title: "2"
-                        }
-                    },
-                    {
-                        continue() {
-                            return Math.random() > 0.5;
-                        },
-                        value: {
-                            title: {
-                                type: "seq",
-                                items: ["It's ",
-                                    {
-                                        type: "option",
-                                        items: ["genson", "Genson"]
-                                    },
-                                    " Generated"
-                                ]
-                            }
-                        }
-                    }
-
-                ]
-            }
+        galatic_supercluster:{
+            title:"galatic supercluster",
+            slot:["galaxy"]
+        },
+        galaxy:{
+            title:"galaxy",
+            slot:{seq:["galatic_center",{repeat:[2,10],value:"arm"}]}
+        },
+        galatic_center:{
+            title:"galatic center",
+            slot:{seq:["blackhole",{repeat:[2,10],value:"star_system"},"nebula","blackhole"]}
+        },
+        blackhole:{
+            title:"blackhole",
+            slot:"inside_the_blackhole"
+        },
+        inside_the_blackhole:{
+            title:"inside the blackhole",
+            slot:"whitehole"
+        },
+        whitehole:{
+            title:"whitehole",
+            slot:"universe"
+        }
+        ,
+        star_system:{
+            title:"star_system"
+        },
+        arm:{
+            title:"arm"
+        },
+        nebula:{
+            title:"nebula"
         }
     }

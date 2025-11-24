@@ -7,78 +7,66 @@ export function createContext(ctx = null) {
 const rand_int=(min,max)=>Math.floor((max-min)*Math.random())+min;
 const ifstring=(string,ctx,fn)=>string.startsWith("javascript:")?new Function("ctx","fn",str.slice(11)(ctx,fn)):fn(string);
 const doSeq=(seq,ctx,fn)=> seq.map(s=>doTerm(s,ctx,fn)).flat().filter(i=>!i?.shouldSkip);
-function doBranch(branches,ctx,fn){
-    /**
-     * weight ,content
-     */
-        if (!branches || branches.length === 0) {
-            return Promise.resolve();
-        }
-        
-        if (branches.length === 1) {
-            return doSeq(branches[0], ctx, fn);
-        }
-        
-        const weightedBranches = [];
-        let totalWeight = 0;
-        
-        for (const branch of branches) {
-            let weight = 1;
-            
-            if (typeof branch === 'object' && branch !== null) {
-                if (branch.weight !== undefined) {
-                    weight = Math.max(0, Number(branch.weight) || 1); 
-                }
-                const branchContent = branch.content || branch.branch || branch;
-                weightedBranches.push({ content: branchContent, weight });
-            } else {
-                weightedBranches.push({ content: branch, weight });
-            }
-            
-            totalWeight += weight;
-        }
-        
-        if (totalWeight === 0) {
-            totalWeight = branches.length;
-            weightedBranches.forEach(branch => branch.weight = 1);
-        }
-        
-        const random = Math.random() * totalWeight;
-        let currentWeight = 0;
-        
-        for (const branch of weightedBranches) {
-            currentWeight += branch.weight;
-            if (random <= currentWeight) {
-                return doSeq(branch.content, ctx, fn);
-            }
-        }
-        
-        return doSeq(weightedBranches[weightedBranches.length - 1].content, ctx, fn);
-
+function doBranch(branches, ctx, fn) {
+    if (!branches?.length) return [];
+    if (branches.length === 1) return doSeq(branches[0], ctx, fn);
+    
+    const weightedBranches = branches.map(branch => {
+        const weight = Math.max(0, Number(branch?.weight) || Number(branch?.wt)|| 1);
+        const content = branch?.content || branch?.branch|| branch?.value|| branch;
+        return { content, weight };
+    });
+    
+    const totalWeight = weightedBranches.reduce((sum, b) => sum + b.weight, 0);
+    const targetWeight = Math.random() * (totalWeight || weightedBranches.length);
+    
+    let accumulated = 0;
+    const selected = weightedBranches.find(branch => 
+        (accumulated += branch.weight) >= targetWeight
+    );
+    
+    return doSeq(selected?.content || weightedBranches[weightedBranches.length - 1].content, ctx, fn);
 }
-function doTerm(term,ctx,fn){
+/**
+ * match term:
+ *   Function -> Result<Function>
+ *   String -> Terminal
+ *   {repeat,value} -> Array<Terminal,shouldFlat=true>
+ *   {ref} -> Terminal
+ *   {continue:Function} -> Array<Terminal,shouldFlat=true>
+ *   Object -> Copied<Object>
+ */
+function doTerm(term,ctx,access){
     // function, need to return an array.
     if(typeof term == "function"){
-        return term(ctx,fn);
+        return term(ctx,access);
     }
     if(typeof term == "string"){
-        return [ifstring(term,ctx,fn)].flat();
+        return ifstring(term,ctx,access);
     }
     if(term == null) return {title:"Null",shouldSkip:true};
     if(typeof term == "object"){
         if(term.repeat){
-            let res=[]
-            for(let i=0;i<term.repeat;i++){
-                res.push(doTerm(term.value,ctx,fn))
+            let res=[],actualTime=1;
+            if(typeof term.repeat == "number"){actualTime=term.repeat;}
+            if(Array.isArray(term.repeat) &&term.repeat.every(i=>typeof i == "number") && term.repeat.length ==2){
+                actualTime=rand_int(term.repeat[0],term.repeat[1])
+            }
+            for(let i=0;i<actualTime;i++){
+                let res_=doTerm(term.value?.value??term.value,ctx,access)
+                res.push(res_)
             }
             res.shouldFlat=true;
             return res;
         }
+        if(term.ref){
+            return access(term.ref);
+        }
         if(typeof term.continue == "function"){
             let res=[];
             let count=0;
-            while(term.continue(ctx,count) == true &&count<114 ){
-                res.push(doTerm(term.value,ctx,fn))
+            while(term.continue(ctx,count) == true &&count<114 ){ 
+                res.push(doTerm(term.value,ctx,access))
             }
             res.shouldFlat=true
             return res;
@@ -110,9 +98,19 @@ function doSlots(slots, ctx, fn) {
     // do it as a single terminal.
     return [doTerm(slots,ctx,fn)].flat();
 }
+/**
+ * these are just loose definition
+ * @typedef NestSet Dict<String (key),NestEntry>
+ * @typedef NestEntry string|Array<string>|BranchSchema|SeqSchema|Terminal
+ * @typedef Terminal {repeat,value}|{continue,value}|{ref}|function
+ * @typedef SeqEntry {seq:Seq}
+ * @typedef Seq Array<Terminal>
+ * @typedef BranchEntry {branch:Branch}
+ * @typedef Branch Array<{weight|wt:Number|Object,value:Seq}>
+ */
 export function makeByJson(json) {
     let mainkey = Object.keys(json)[0];
-    let access = (key = mainkey) => json[key] && {
+    let access = (key = mainkey) =>json[key] && {
         title: evaluate(json[key]?.title),
         line: json[key]?.line,
         getProp() { },
@@ -142,7 +140,6 @@ export const wrap = (wrapee) =>  ref({
             this.slot.value = wrapee?.expand?.(ctx)?.map?.(i => wrap(i))??[]
         }
     })
-
 export function createNest() {
     return wrap(makeByJson(example))
 }
