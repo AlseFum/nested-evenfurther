@@ -8,14 +8,15 @@ let ctx = reactive({
   root: null,
   curent: null
 });
-const recvObj = (thes) => {
+const mountItem = (thes) => {
   ctx.root = thes
   ctx.current = thes
 }
-recvObj(createNest());
-//---------------------
+mountItem(createNest());
+//----Animation
 const overlayPos = ref({ left: 321, top: 321 })
 const overlayItem = ref();
+const root=ref()
 const overlayDisplay = ref('none');
 const position = ref({ x: 0, y: 0, op: 1 })
 const handleMount = (item, _c, left, top) => {
@@ -26,6 +27,7 @@ const handleMount = (item, _c, left, top) => {
   startmove(-left, -top, 0, () => {
     overlayDisplay.value = "none"
     ctx.current = item;
+    root.value.justfold();
   })
 }
 const startmove = (targetX, targetY, targetOP, thenfn) => {
@@ -61,8 +63,9 @@ const startmove = (targetX, targetY, targetOP, thenfn) => {
 
   requestAnimationFrame(animate)
 }
+//----Extern
 const handleSourceLoaded = (sourceData) => {
-  recvObj(wrap(makeByJson(sourceData.data)))
+  mountItem(wrap(makeByJson(sourceData.data)))
   getCurrentInstance?.()?.$forceUpdate?.()
 }
 

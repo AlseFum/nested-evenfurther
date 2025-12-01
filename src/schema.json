@@ -1,0 +1,265 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/nest-schema.json",
+  "title": "Nest Configuration Schema",
+  "description": "支持动态内容生成和嵌套结构的配置格式",
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/definitions/NestEntry"
+  },
+  "definitions": {
+    "NestSet": {
+      "type": "object",
+      "description": "嵌套配置的根对象，键名为节点标识符",
+      "additionalProperties": {
+        "$ref": "#/definitions/NestEntry"
+      }
+    },
+
+    "NestEntry": {
+      "type": "object",
+      "description": "单个嵌套条目的定义",
+      "properties": {
+        "title": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "object", "description": "可求值的表达式对象" }
+          ],
+          "description": "节点标题，支持字符串或可求值表达式"
+        },
+        "line": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "object", "description": "可求值的表达式对象" }
+          ],
+          "description": "行内容，可选"
+        },
+        "slot": {
+          "$ref": "#/definitions/Slot",
+          "description": "定义节点内容的插槽"
+        },
+        "getProp": {
+          "oneOf": [
+            { "type": "object" },
+            { 
+              "type": "object",
+              "properties": {
+                "type": { "const": "function" }
+              },
+              "description": "函数定义，实际执行时会被处理"
+            }
+          ],
+          "description": "节点属性获取器，可以是对象或函数"
+        }
+      },
+      "required": ["title", "slot"],
+      "additionalProperties": false
+    },
+
+    "Slot": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "字符串数组格式的插槽，第一个元素为指令",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        {
+          "type": "object",
+          "properties": {
+            "branch": { "$ref": "#/definitions/Branch" },
+            "seq": { "$ref": "#/definitions/Seq" }
+          },
+          "additionalProperties": false,
+          "description": "对象格式的插槽定义"
+        },
+        { "$ref": "#/definitions/Terminal" }
+      ],
+      "description": "插槽定义，支持多种格式"
+    },
+
+    "Seq": {
+      "type": "object",
+      "properties": {
+        "onEnter": {
+          "type": "string",
+          "description": "进入序列时执行的JavaScript代码（以'javascript:'开头）"
+        },
+        "seq": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Terminal" },
+          "description": "终端节点序列"
+        }
+      },
+      "additionalProperties": false,
+      "description": "序列定义，包含有序的终端节点"
+    },
+
+    "Branch": {
+      "type": "object",
+      "properties": {
+        "onEnter": {
+          "type": "string",
+          "description": "进入分支时执行的JavaScript代码"
+        },
+        "branch": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BranchItem" },
+          "minItems": 1,
+          "description": "分支项数组"
+        }
+      },
+      "additionalProperties": false,
+      "description": "分支定义，支持权重随机选择"
+    },
+
+    "BranchItem": {
+      "type": "object",
+      "properties": {
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "分支项的权重值"
+        },
+        "wt": {
+          "type": "number", 
+          "minimum": 0,
+          "description": "权重的别名"
+        },
+        "content": {
+          "$ref": "#/definitions/Seq",
+          "description": "分支内容"
+        },
+        "branch": {
+          "$ref": "#/definitions/Seq", 
+          "description": "分支内容的别名"
+        },
+        "value": {
+          "$ref": "#/definitions/Seq",
+          "description": "分支内容的别名"
+        }
+      },
+      "required": ["content"],
+      "additionalProperties": false,
+      "description": "单个分支项定义"
+    },
+
+    "Terminal": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "字符串内容或以'javascript:'开头的可执行代码"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "function" }
+          },
+          "description": "函数定义，实际执行时会被调用"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "repeat": {
+              "oneOf": [
+                { "type": "number", "minimum": 0 },
+                {
+                  "type": "array",
+                  "items": { "type": "number", "minimum": 0 },
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "description": "重复次数范围[min, max]"
+                }
+              ]
+            },
+            "value": { "$ref": "#/definitions/Terminal" },
+            "shouldSkip": {
+              "type": "boolean",
+              "description": "是否跳过该节点"
+            }
+          },
+          "required": ["repeat", "value"],
+          "additionalProperties": false,
+          "description": "重复节点定义"
+        },
+        {
+          "type": "object", 
+          "properties": {
+            "continue": {
+              "type": "object",
+              "properties": {
+                "type": { "const": "function" }
+              },
+              "description": "继续条件函数"
+            },
+            "value": { "$ref": "#/definitions/Terminal" }
+          },
+          "required": ["continue", "value"],
+          "additionalProperties": false,
+          "description": "条件继续节点定义"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "description": "引用其他节点的标识符"
+            }
+          },
+          "required": ["ref"],
+          "additionalProperties": false,
+          "description": "引用其他节点"
+        },
+        {
+          "type": "object",
+          "description": "普通对象，会被直接复制"
+        }
+      ],
+      "description": "终端节点，支持多种类型"
+    }
+  },
+  
+  "examples": [
+    {
+      "mainNode": {
+        "title": "主节点",
+        "line": "这是一个示例节点",
+        "slot": {
+          "branch": {
+            "onEnter": "javascript:console.log('进入分支')",
+            "branch": [
+              {
+                "weight": 1,
+                "content": {
+                  "seq": [
+                    "直接内容",
+                    { "ref": "otherNode" },
+                    { "repeat": [1, 3], "value": "重复内容" }
+                  ]
+                }
+              },
+              {
+                "weight": 2, 
+                "content": {
+                  "seq": [
+                    "另一个分支的内容"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "getProp": {
+          "type": "main",
+          "color": "blue"
+        }
+      },
+      "otherNode": {
+        "title": "其他节点",
+        "slot": ["seq", "内容1", "内容2", { "continue": { "type": "function" }, "value": "条件内容" }]
+      }
+    }
+  ]
+}

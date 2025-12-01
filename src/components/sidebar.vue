@@ -1,52 +1,55 @@
 <template>
     <div>
-        <div class="trigger-area" @mouseenter="activateSidebar" @mouseleave="deactivateSidebar"></div>
+        <div class="trigger-area" @mouseenter="activateSidebar" @mouseleave="deactivateSidebar">
+            <div class="sidebar" :class="{ active: sidebarActive }" @mouseenter="activateSidebar"
+                @mouseleave="deactivateSidebar">
 
-        <div class="sidebar" :class="{ active: sidebarActive }" @mouseenter="activateSidebar"
-            @mouseleave="deactivateSidebar">
-
-            <div class="sidebar-header">
-                <h2 class="sidebar-title">Import</h2>
-            </div>
-
-            <div class="sidebar-content">
-                <div class="sidebar-item" @click="triggerFileInput">
-                    <span>JSON File</span>
-                    <input type="file" ref="fileInput" accept=".json" @change="handleFileUpload" style="display: none;">
+                <div class="sidebar-header">
+                    <h2 class="sidebar-title">Import</h2>
                 </div>
 
-                <div class="sidebar-item" @click="showExternalInput = !showExternalInput">
-                    <span>External Source</span>
-                </div>
+                <div class="sidebar-content">
+                    <div class="sidebar-item" style="display:block" @click="showTextInput = !showTextInput">
+                        <span>Input</span>
+                        <br />
+                        <div v-if="showTextInput" style="display:flex;width:100%;flex-direction: column;">
+                            <textarea v-model="textInput" rows="5" @click.stop class="sidebar-textarea"></textarea>
 
-                <div v-if="showExternalInput" class="external-input-group">
-                    <div class="input-row">
-                        <label class="input-label">Source:</label>
-                        <select v-model="selectedSource" class="combobox">
-                            <option value="textdb">TextDB</option>
-                        </select>
+                            <button @click.stop="loadFromInput">click</button>
+                        </div>
+
                     </div>
 
-                    <div class="input-row">
-                        <label class="input-label">path:</label>
-                        <input type="text" v-model="externalId" class="lineedit" @keyup.enter="loadFromExternal">
+                    <div class="sidebar-item" @click="triggerFileInput">
+                        <span>JSON File</span>
+                        <input type="file" ref="fileInput" accept=".json" @change="loadFromFile" style="display: none;">
                     </div>
 
-                    <button @click="loadFromExternal" class="submit-btn" :disabled="loading">
-                        {{ loading ? 'Loading...' : 'Submit' }}
-                    </button>
-                </div>
+                    <div class="sidebar-item" @click="showExternalInput = !showExternalInput">
+                        <span>External Source</span>
+                    </div>
 
-                <div class="sidebar-item" @click="showBase64Input = !showBase64Input">
-                    <span>Base64</span>
-                </div>
-                <div v-if="showBase64Input" class="input-group">
-                    <textarea v-model="base64Data" placeholder="Base64 format" class="textarea-field"></textarea>
-                    <button @click="loadFromBase64" class="action-btn">Decode</button>
-                </div>
+                    <div v-if="showExternalInput" class="external-input-group">
+                        <div class="input-row">
+                            <label class="input-label">Source:</label>
+                            <select v-model="selectedSource" class="combobox">
+                                <option value="textdb">TextDB</option>
+                            </select>
+                        </div>
 
-                <div v-if="loading" class="status-message loading">Loading...</div>
-                <div v-if="error" class="status-message error">Error: {{ error }}</div>
+                        <div class="input-row">
+                            <label class="input-label">path:</label>
+                            <input type="text" v-model="externalId" class="lineedit" @keyup.enter="loadFromExternal">
+                        </div>
+
+                        <button @click="loadFromExternal" class="submit-btn" :disabled="loading">
+                            {{ loading ? 'Loading...' : 'Submit' }}
+                        </button>
+                    </div>
+
+                    <div v-if="loading" class="status-message loading">Loading...</div>
+                    <div v-if="error" class="status-message error">Error: {{ error }}</div>
+                </div>
             </div>
         </div>
     </div>
@@ -54,20 +57,17 @@
 
 <script setup>
 import { ref, defineEmits } from 'vue'
-
 import { from_text_db } from '../network.js'
-
 const emits = defineEmits(['source-loaded'])
 
 const sidebarActive = ref(false)
 let sidebarTimeout = null
 const showExternalInput = ref(false)
-let base64Data = ref()
-const showBase64Input = ref(false)
+const showTextInput = ref(false);
+const textInput = ref(JSON.stringify({ nested: { title: "Nested", slot: ["nested"] } }));
 const fileInput = ref(null)
 const loading = ref(false)
 const error = ref('')
-
 const selectedSource = ref('textdb')
 const externalId = ref('')
 
@@ -85,11 +85,56 @@ const deactivateSidebar = () => {
     }, 300)
 }
 
+const handleText = (text) => {
+    const base64ToPlain = (text) => {
+        const isValidBase64 = (str) => {
+            if (typeof str !== 'string' || !str) return false;
+            const cleanStr = str.trim();
+            if (cleanStr.length % 4 !== 0) return false;
+            const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
+            return base64Pattern.test(cleanStr);
+        };
+
+        const decodeBase64 = (base64Str) => {
+            const cleanStr = base64Str.trim();
+            if (!isValidBase64(cleanStr)) {
+                return false;
+            };
+            return decodeURIComponent(
+                atob(cleanStr).split('').map(char =>
+                    '%' + ('00' + char.charCodeAt(0).toString(16)).slice(-2)
+                ).join('')
+            );
+        };
+        if (typeof text !== 'string') {
+            return false;
+        }
+        const input = text.trim();
+        if (input === '') {
+            return false;
+        }
+        if (isValidBase64(input)) {
+            return decodeBase64(input);
+        }
+        return false;
+    };
+    let b64 = base64ToPlain(text)
+    return JSON.parse(b64 ? b64 : text)
+}
+const loadFromInput = (e) => {
+    const text = textInput.value;
+    emits('source-loaded', {
+        type: 'json-file',
+        data: handleText(text),
+        filename: "",
+        timestamp: new Date()
+    })
+    return;
+}
 const triggerFileInput = () => {
     fileInput.value?.click()
 }
-
-const handleFileUpload = (event) => {
+const loadFromFile = (event) => {
     const file = event.target.files[0]
     if (!file) return
 
@@ -99,11 +144,10 @@ const handleFileUpload = (event) => {
     const reader = new FileReader()
     reader.onload = (e) => {
         try {
-            const content = e.target.result
-            const data = JSON.parse(content)
+            const content = e.target.result;
             emits('source-loaded', {
                 type: 'json-file',
-                data: data,
+                data: handleText(content),
                 filename: file.name,
                 timestamp: new Date()
             })
@@ -138,7 +182,6 @@ const loadFromExternal = async () => {
         switch (selectedSource.value) {
             case 'textdb':
                 data = await from_text_db(externalId.value.trim())
-                console.log("data is ", data)
                 break
             default:
                 throw new Error('Unknown external source')
@@ -146,7 +189,7 @@ const loadFromExternal = async () => {
 
         let parsedData
         try {
-            parsedData = JSON.parse(data)
+            parsedData = handleText(data)
         } catch {
             parsedData = data
         }
@@ -167,44 +210,12 @@ const loadFromExternal = async () => {
     }
 }
 
-const loadFromBase64 = () => {
-    if (!base64Data.value) {
-        error.value = 'Base64 format data is needed!'
-        return
-    }
-
-    loading.value = true
-    error.value = ''
-
-    try {
-        const decodedString = decodeURIComponent(escape(atob(base64Data.value)))
-        const data = JSON.parse(decodedString)
-
-        emits('source-loaded', {
-            type: 'base64',
-            data: data,
-            timestamp: new Date()
-        })
-        resetInputs()
-    } catch (err) {
-        error.value = 'Parsing failed: ' + err.message
-    } finally {
-        loading.value = false
-    }
-}
-
 const resetInputs = () => {
     externalId.value = ''
-    base64Data.value = ''
     if (fileInput.value) {
         fileInput.value.value = ''
     }
     showExternalInput.value = false
-    showBase64Input.value = false
     error.value = ''
 }
 </script>
-
-<style scoped>
-
-</style>
