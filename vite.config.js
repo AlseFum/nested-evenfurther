@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
+  base: '/nested-evenfurther/',
   server: {
     host: '0.0.0.0',
     cors: true,
