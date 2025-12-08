@@ -76,9 +76,3 @@ const foldfn = () => {
         </div>
     </div>
 </template>
-<style>
-button {
-    height: 20px;
-    border-radius: 1px;
-}
-</style>

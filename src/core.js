@@ -1,23 +1,37 @@
 import { ref } from "vue"
-import example from "./assets/default.js"
 import { evaluate } from "./genson.js";
+import example from "./assets/default.js"
+
 export function createContext(ctx = null) {
     let nextLayer = Object.create(ctx)
     nextLayer._ = ctx;
     return nextLayer
 }
-const rand_int = (min, max) => Math.floor((max - min) * Math.random()) + min;
-const ifstring = (string, ctx, fn) => string.startsWith("javascript:") ? new Function("ctx", "fn", str.slice(11))(ctx, fn) : fn(string);
-const doSeq = (seq, ctx, fn) => {
-    let newctx=createContext(ctx);
-    ifstring(seq.onEnter,newctx,fn);
-    seq.map(s => doTerm(s, newctx, fn)).flat(1).filter(i => !i?.shouldSkip);
+const rand_int = (min, max) => Math.floor((max - min + 1) * Math.random()) + min;
+const run_str = (str, ctx, fn) => {
+    if (str.startsWith("js:")) {
+        str.splice(3);
+    }
+    if (str.startsWith("javascript:")) {
+        str.splice(3);
+    }
+    try {
+        return new Function("ctx", "fn", str.slice(11))(ctx, fn)
+    } catch (e) {
+        fn(string)
+    }
+
+}
+const doSeqArray = (seq, ctx, fn) => {
+    let newctx = createContext(ctx);
+    run_str(seq.onEnter, newctx, fn);
+    return seq.map(s => doTerm(s, newctx, fn)).flat(1).filter(i => !i?.shouldSkip);
 };
 
 function doBranch(branches, ctx, fn) {
     if (!branches?.length) return [];
     if (branches.length === 1) {
-        return doSeq(branches[0].content, ctx, fn);
+        return doSeqArray(branches[0].content, ctx, fn);
     }
 
     const weightedBranches = branches.map(branch => {
@@ -33,26 +47,41 @@ function doBranch(branches, ctx, fn) {
     const selected = weightedBranches.find(branch =>
         (accumulated += branch.weight) >= targetWeight
     );
-    newctx = createContext(crx);
-    ifstring(branches.onEnter, newctx, fn);
-    return doSeq(selected?.content || weightedBranches[weightedBranches.length - 1].content, ctx, fn);
+    let newctx = createContext(ctx);
+    run_str(branches.onEnter, newctx, fn);
+    return doSeqArray(selected?.content || weightedBranches[weightedBranches.length - 1].content, ctx, fn);
 }
-/**
- * match term:
- *   Function -> Result<Function>
- *   String -> Terminal
- *   {repeat,value} -> Array<Terminal,shouldFlat=true>
- *   {ref} -> Terminal
- *   {continue:Function} -> Array<Terminal,shouldFlat=true>
- *   Object -> Copied<Object>
- */
+
+function extractSuffixValues(str) {
+    const digitMatch = str.match(/^(.*)\*(\d+)$/);
+    if (digitMatch) {
+        return [digitMatch[1], parseInt(digitMatch[2])];
+    }
+
+    const rangeMatch = str.match(/^(.*)\*\[(\d+),(\d+)\]$/);
+    if (rangeMatch) {
+        return [rangeMatch[1], [parseInt(rangeMatch[2]), parseInt(rangeMatch[3])]];
+    }
+    return [str, 1];
+}
 function doTerm(term, ctx, access) {
     // function, need to return an array.
     if (typeof term == "function") {
         return term(ctx, access);
     }
     if (typeof term == "string") {
-        return ifstring(term, ctx, access);
+        if (term.startsWith("js:") || term.startsWith("javascript:")) {
+            return run_str(term, ctx, access);
+        }
+        if (typeof slots == "string") {
+            let [refer, time_] = extractSuffixValues(slots);
+            let time = time_ == null
+                ? 1
+                : typeof time_ == "number"
+                    ? time_
+                    : rand_int(time_[0], time_[1]);
+            return Array(time).fill(0).map(i => access(refer))
+        }
     }
     if (term == null) return { title: "Null", shouldSkip: true };
     if (typeof term == "object") {
@@ -86,62 +115,53 @@ function doTerm(term, ctx, access) {
     return [{ title: term }]
 }
 
-//this should only return layer1 array.
-function doSlots(slots, ctx, accessor) {
-    //this is the very basic mode
-    // [key1,key2,key3,keyN...]
+function doEntry(slots, ctx, accessor) {
+    if (typeof slots != "object") {
+        return [doTerm(slots, ctx, accessor)].flat();
+    }
     if (Array.isArray(slots) && slots.length > 0 && slots.every(slot => typeof slot == "string")) {
         if (slots[0] == "seq") {
-            return doSeq(slots.slice(1));
+            return doSeqArray(slots.slice(1), ctx, accessor);
         };
         if (slots[0] == "branch") {
-            return doBranch(slots.slice(1));
+            return doBranch(slots.slice(1), ctx, accessor);
         }
         return Array(rand_int(1, 4)).fill(0).map(() => {
             return accessor(slots[rand_int(0, slots.length)]);
         });
+    }
+    if (slots.branch) {
+        return doBranch(slots.branch, ctx, accessor)
+    }
+    //just use the decided sequence
+    if (slots.seq) {
+        return doSeqArray(slots.seq, ctx, accessor)
+    }
 
-    }
-    if (typeof slots == 'object') {
-        //we'll use branch to decide which sequence to use
-        if (slots.branch) {
-            return doBranch(slots.branch, ctx, accessor)
-        }
-        //just use the decided sequence
-        if (slots.seq) {
-            return doSeq(slots.seq, ctx, accessor)
-        }
-    }
-    // do it as a single terminal.
-    return [doTerm(slots, ctx, accessor)].flat();
 }
-/**
- * these are just loose definition
- * @typedef NestSet Dict<String (key),NestEntry>
- * @typedef NestEntry string|Array<string>|BranchSchema|SeqSchema|Terminal
- * @typedef Terminal {repeat,value}|{continue,value}|{ref}|function
- * @typedef SeqEntry {seq:Seq}
- * @typedef Seq Array<Terminal>
- * @typedef BranchEntry {branch:Branch}
- * @typedef Branch Array<{weight|wt:Number|Object,value:Seq}>
- */
+
 export function makeByJson(json) {
     let mainkey = Object.keys(json)[0];
     let access = (key = mainkey) => json[key] && {
-        title: evaluate(json[key]?.title),
+        title: typeof json[key] == "string"
+            ? json[key]
+            : evaluate(json[key]?.title) != ""
+                ? evaluate(json[key]?.title)
+                : "key" + key,
         line: json[key]?.line,
-        getProp() { return {} },
+        getProp() { return json[key]?.prop },
+        prop: {},
         expand(ctx) {
             let newCtx = createContext(ctx);
             newCtx.prop = this.prop;
-            return doSlots(json[key]?.slot ?? [], ctx, access)
+            return doEntry(json[key]?.slot ?? json[key]?.entry ?? [], ctx, access)
         }
-    } || [{ title: "Nope already: " + key }];
+    } || [{ title: "No key:" + key }];
     return access();
 }
 //---------------------------
 function getProp(n, ctx) {
-    return n && typeof n.getProp == "function" ? n.getProp(ctx) : n.getProp
+    return n && typeof n.getProp == "function" ? n.getProp(ctx) : n.prop
 }
 //this function is to make the layer  vue-reactive and gensonified
 //and, the insider creator should not concern about the wrap

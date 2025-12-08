@@ -57,6 +57,7 @@
 
 <script setup>
 import { ref, defineEmits } from 'vue'
+import { parse } from '../assets/parser';
 import { from_text_db } from '../network.js'
 const emits = defineEmits(['source-loaded'])
 
@@ -64,13 +65,13 @@ const sidebarActive = ref(false)
 let sidebarTimeout = null
 const showExternalInput = ref(false)
 const showTextInput = ref(false);
-const textInput = ref(JSON.stringify({ nested: { title: "Nested", slot: ["nested"] } }));
+const textInput = ref(JSON.stringify({ nested:{title:"Nested",slot:"b"},b:{title:"B",slot:"nested*[1,2]"} }));
 const fileInput = ref(null)
 const loading = ref(false)
 const error = ref('')
 const selectedSource = ref('textdb')
 const externalId = ref('')
-
+//----------------
 const activateSidebar = () => {
     if (sidebarTimeout) {
         clearTimeout(sidebarTimeout)
@@ -84,7 +85,7 @@ const deactivateSidebar = () => {
         sidebarActive.value = false
     }, 300)
 }
-
+//----------------
 const handleText = (text) => {
     const base64ToPlain = (text) => {
         const isValidBase64 = (str) => {
@@ -119,8 +120,22 @@ const handleText = (text) => {
         return false;
     };
     let b64 = base64ToPlain(text)
-    return JSON.parse(b64 ? b64 : text)
+    let afterb64=b64?b64:text;
+    if(!afterb64.startsWith("{")){
+        try{
+            afterb64 = parse(afterb64)
+        }catch(e){}
+    }
+    try{
+        return typeof afterb64 == "object"?afterb64:JSON.parse(afterb64)
+    }catch(e){
+        return {
+            title:"Not available!"
+        }
+    }
+    
 }
+//---------------------
 const loadFromInput = (e) => {
     const text = textInput.value;
     emits('source-loaded', {
@@ -209,7 +224,7 @@ const loadFromExternal = async () => {
         loading.value = false
     }
 }
-
+//--------------------------
 const resetInputs = () => {
     externalId.value = ''
     if (fileInput.value) {
