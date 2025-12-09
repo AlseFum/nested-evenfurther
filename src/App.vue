@@ -14,7 +14,7 @@ const mountItem = (thes) => {
 }
 mountItem(createNest());
 //----Animation
-const overlayPos = ref({ left: 321, top: 321 })
+const overlayPos = ref({ left: 321, top: 321})
 const overlayItem = ref();
 const root=ref()
 const overlayDisplay = ref('none');
@@ -74,9 +74,9 @@ const handleSourceLoaded = (sourceData) => {
 
 <template>
   <nested :item="overlayItem"
-    :style="{ display: overlayDisplay, opacity: 1, transform: `translate(${position.x}px, ${position.y}px)`, zIndex: 133, position: 'fixed', left: `${overlayPos.left}px`, top: `${overlayPos.top}px` }">
+    :style="{ display: overlayDisplay, opacity: 1, transform: `translate(${position.x}px, ${position.y}px)`, zIndex: 123, position: 'fixed', left: `${overlayPos.left}px`, top: `${overlayPos.top}px`}">
   </nested>
-  <nested :item="ctx.current" :ctx="createContext()" @mount="handleMount" id="root" ref="root"
+  <nested :item="ctx.current" @mount="handleMount" id="root" ref="root"
     :style="{opacity:position.op,transform: `translate(${position.x}px, ${position.y}px)` }"></nested>
 
 <Sidebar :info="ctx.current" @source-loaded="handleSourceLoaded" /></template>

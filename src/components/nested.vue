@@ -57,7 +57,7 @@ const foldfn = () => {
 </script>
 <template>
     <div class="nest" ref="curroot">
-        <div class="nest-title">
+        <div class="nest-title" style="position:relative;">
             <button @click="foldfn">{{ expanded ? "-" : "+" }}</button>
             {{ title }}
             <button @click="toGenerate">↻</button>
@@ -70,7 +70,7 @@ const foldfn = () => {
             </div>
             <div class="nest-slot" v-if="getChildren().length > 0 ">
                 <div v-for="s in getChildren()">
-                    <nested :item="s" :ctx="props.ctx" @mount="(a, b, c, d) => emit('mount', a, b, c, d)"></nested>
+                    <nested :item="s"  @mount="(a, b, c, d) => emit('mount', a, b, c, d)"></nested>
                 </div>
             </div>
         </div>

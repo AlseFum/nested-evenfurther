@@ -70,6 +70,9 @@ button:focus-visible {
 .nest{
   background-color: lightgrey;
 }
+.nest-title{
+  position:relative;
+}
 .nest-title:hover{
   background-color:rgb(89, 89, 89);
   color:white;

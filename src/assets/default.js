@@ -1,16 +1,39 @@
-import {parse} from "./parser.js"
-export default parse(`
-identifierWithslot->option1|option2|option3
-fullFormat:完整格式标题->选项1|选项2|选项3
-multipleBranches:分支1->opt1|opt2
-option1:选项1->multipleBranches
-multipleBranches:分支2->opt3|opt4
-multipleBranches:分支3->opt5|opt6
-"quotedIdentifier":"带引号的标题"->"选项1"|"选项2"
-"onlyQuotedIdentifier"
-emptyTitle:->option1|option2
-emptyslot:标题->
-mixed:"混合:标题:测试"->"选项:1"|option2
-simpleIdentifier
-identifierWithTitle:这是一个标题
+import { parse } from "./parser.js"
+let d=parse(`
+a--(1)>c,d
+a--(2)>d
+c#C
+d#D
 `)
+export default {
+    main: {
+        title: "示例",
+        slot: ["#BareTitle*[1,4]", "UseBranch", "AnotherRef*1"],
+        prop: { a: 2 }
+    },
+    AnotherRef: {
+        title: "又一个示例",
+        slot: ["main","#YetAnotherOnlyTitle for showing seq"]
+    },
+    UseBranch: {
+        title: "Branch示例",
+        slot: {
+            type: "branch",
+            value: [
+                [
+                    1,
+                    ["AnotherRef"]
+                ], {
+                    weight: 2,
+                    value: ["#Ohh,Title",
+                        {
+                            title: "Object",
+                            line: "This is defined just in JSON Object. And slot is unabled",
+                            slot: ["main"]
+                        }]
+                }
+            ]
+
+        }
+    }
+}
