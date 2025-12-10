@@ -1,4 +1,5 @@
-import {parseFlexibleDSL as parseDSLLine} from "./line.js"
+// import {parseFlexibleDSL as parseDSLLine} from "./line.js"
+import {parse as parseDSLLine} from "./anotherline.mjs"
 export const split_text=text=>{
     if (!text || typeof text !== 'string') {
         return {};
@@ -68,7 +69,7 @@ export const doNext=(obj,com)=>{
 }
 export const parse = text => {
     let result={};
-    let coms=split_text(text).map(t=>parseDSLLine(t));
+    let coms=split_text(text).map(t=>console.log("doing",t)||parseDSLLine(t));
     for(let com of coms){
         
         if(!result[com.id]){

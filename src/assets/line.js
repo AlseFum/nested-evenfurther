@@ -97,3 +97,14 @@ const dslLines = [
     'myField#我的标题[name=test]`这是一个描述`=slot_content',
     'myField`这是一个描述`--(0.8)>branch_target'
 ];
+
+const charwise=text=>{
+    let state={
+        p:0,
+        text
+    }
+    let step=0;
+    while(state.p<text.length && step++<text.length*2){
+        p++;
+    }
+}
